@@ -1,148 +1,96 @@
 package org.example;
 
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Scanner;
 
-public final class GameEngine {
-    private static String WORD;
-    private static int errorNum;
-    private static ArrayList<Character> guesses;
-    private static StringBuilder wordMask;
-    private static ArrayList<Character> remainingLetters;
-    
-    public static void gameProcess()
-    {
-        System.out.println("""
-                \n\t\t\t\tWELCOME TO HANGMAN!
-                Do you wanna start a new game, gambler?
-                (Type Y to start)""");
-        init();
-        System.out.println(WORD);
+public class GameEngine
+{
+    private static final int ERRORS_BOUND = 6;
+    private static final Scanner scanner = new Scanner(System.in);
 
 
+    public static void  startGameLoop() {
+        String initialWord = WordGenerator.getWord().toLowerCase();
+        System.out.println("Aight, let's go\nYou're allowed to make upto " + ERRORS_BOUND + " MISTAKES");
+        HashSet<String> knownLetters = new HashSet<>();
+        ArrayList<String> maskedWord = new ArrayList<>();
+        maskInitialWord(maskedWord, initialWord);
 
+        System.out.println(initialWord);
+        int errorCount = 0;
+        int rightGuessesCount = 0;
 
-        Scanner scanner = new Scanner(System.in);
-        String inputKey = scanner.nextLine();
-        if (inputKey.trim().equalsIgnoreCase("Y")) {
-            startTheGame();
-            determineTheResult();
-        } else {
-            System.out.println("You quited the game ;(");
-        }
-    }
-
-
-    private static void startTheGame() {
-        System.out.println("Aight, let's go!\n");
-        Scanner scanner = new Scanner(System.in);
-        while (errorNum != 6 && !wordMask.toString().equals(WORD))
+        while (errorCount != ERRORS_BOUND && rightGuessesCount != countDistinctLetters(initialWord))
         {
-            System.out.println("BEING GUESSED WORD: " + wordMask);
-            System.out.println("Already known: " +  guesses);
-            System.out.print("\nYOUR GUESS: ");
-            String inputLine = scanner.nextLine();
-            if (inputValidation(inputLine))
+            System.out.println("\n" + maskedWord);
+            String inputChar = scanner.nextLine();
+            if (inputChar.length() != 1 || !Character.isAlphabetic(inputChar.charAt(0))
+            || knownLetters.contains(inputChar))
             {
+                System.out.println("Invalid input");
                 continue;
             }
-            char guess = inputLine.charAt(0);
-            guesses.add(guess);
-            processUserGuess(guess);
-        }
-    }
-
-    private static void init() {
-        guesses = new ArrayList<>();
-        wordMask = new StringBuilder();
-        errorNum = 0;
-        WORD = WordGenerator.getWord().toLowerCase();
-        Set<Character> set = new HashSet<>();
-        char[] chars = WORD.toCharArray();
-        for (char c : chars) {
-            set.add(c);
-        }
-        remainingLetters = new ArrayList<>(set);
-        chooseLettersToShow(2);
-        int len = WORD.length();
-        for (int i = 0; i < len; i++) {
-            if (guesses.contains(WORD.charAt(i)))
+            knownLetters.add(inputChar);
+            if (initialWord.contains(inputChar))
             {
-                wordMask.append(WORD.charAt(i));
-            }else {
-                wordMask.append('*');
+                rightGuessesCount++;
+                System.out.println("RIGHT!");
+                openAllTheLetterOccurrencesInMask(initialWord, maskedWord, inputChar);
             }
-        }
-    }
-
-
-    private static void processUserGuess(char guess) {
-        if (remainingLetters.contains(guess))
-        {
-            int letterIndex = WORD.indexOf(guess);
-            System.out.println("RIGHT!");
-            remainingLetters.remove(remainingLetters.indexOf(guess));
-            while (letterIndex != -1)
+            else
             {
-                wordMask.setCharAt(letterIndex, guess);
-                letterIndex = WORD.indexOf(guess, letterIndex+1);
+                System.out.println("WRONG~");
+                errorCount++;
             }
+            Scaffold.printGallows(errorCount);
+            System.out.println("ERRORS: " + errorCount);
+            System.out.println("You've guessed: " + knownLetters);
         }
-        else
-        {
-            errorNum++;
-            System.out.println("WRONG~");
-            System.out.println(Scaffold.getGallows(errorNum));
-        }
-    }
-
-    private static boolean inputValidation(String inputLine) {
-        if (inputLine.length() == 1 &&  Character.isAlphabetic(inputLine.charAt(0))
-            && !guesses.contains(inputLine.charAt(0)))
-        {
-            return false;
-        }
-        else
-        {
-            System.out.println("Invalid guess or you'd already guessed this");
-            return true;
-        }
+        System.out.println("THE INITIAL WORD WAS: " + initialWord);
+        determineTheResult(errorCount);
     }
 
 
-    private static void chooseLettersToShow(int k)
+
+    private static void maskInitialWord(ArrayList<String> maskedWord, String initialWord)
     {
-        Random random = new Random();
-        while (k > 0)
+        for (int i = 0; i < initialWord.length(); i++) {
+            maskedWord.add("*");
+        }
+    }
+    private static void openAllTheLetterOccurrencesInMask(String initialWord, ArrayList<String> maskedWord, String letter)
+    {
+        for (int i = 0; i < initialWord.length(); i++) {
+            if (initialWord.charAt(i) == letter.charAt(0)) {
+                maskedWord.set(i, letter);
+            }
+        }
+    }
+    private static int countDistinctLetters(String word)
+    {
+        HashMap<Character, Boolean> map = new HashMap<>();
+        char[] chars = word.toCharArray();
+        int len = word.length();
+        int count = 0;
+        for (int i = 0; i < len; i++) {
+            if (!map.getOrDefault(chars[i], false)) {
+                map.put(chars[i], true);
+                count++;
+            }
+        }
+        return count;
+    }
+    private static void determineTheResult(int errorCount) {
+        System.out.println("\n\t\t\tGAME OVER");
+        if (errorCount == ERRORS_BOUND)
         {
-            int index = random.nextInt(0, remainingLetters.size());
-            guesses.add(remainingLetters.get(index));
-            remainingLetters.remove(index);
-            k--;
+            System.out.println("You lost:(");
+            System.out.println("Good luck in next life:)\n");
+        }else {
+            System.out.println("CONGRATULATIONS!!\n");
         }
-    }
-    private static void determineTheResult() {
-        if (errorNum == 6) {
-            System.out.println("The actual word was: " + WORD +
-                    "\nGood luck next time");
-        }
-        else{
-            System.out.println("YOU WON! ^^");
-        }
-        restartOrQuit();
-    }
-
-    private static void restartOrQuit() {
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("Do you wanna play again?\n(Type Y to start a new game)");
-        String inputExitKey = scanner.nextLine();
-        if (inputExitKey.trim().equalsIgnoreCase("Y"))
-        {
-            startTheGame();
-        }
-    }
-
-    public static void main(String[] args) {
-        gameProcess();
     }
 }
